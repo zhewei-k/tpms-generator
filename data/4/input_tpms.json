@@ -1,0 +1,39 @@
+{
+    "description": "",
+    "inputs": [
+        {
+            "description": "",
+            "name": "TPMS Type",
+            "type": "enum",
+            "value": 0
+        },
+        {
+            "description": "",
+            "name": "Cell Size",
+            "type": "real",
+            "units": "mm",
+            "value": 3.5
+        },
+        {
+            "description": "",
+            "name": "Thickness",
+            "type": "real",
+            "units": "mm",
+            "value": 0.1066880127
+        },
+        {
+            "description": "",
+            "name": "Element Size",
+            "type": "real",
+            "units": "mm",
+            "value": 0.084
+        },
+        {
+            "description": "",
+            "name": "Counter",
+            "type": "text",
+            "value": "4"
+        }
+    ],
+    "title": "TPMS Generator"
+}
