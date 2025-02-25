@@ -11,6 +11,9 @@ Version 2 of this script makes use of Ansys PyMAPDL and nTop Automate to enable 
 
 Run times can vary between 15 minutes up to 2 hours.
 
+Bug fixes:
+- updated strain in compression, previously was not accurate as multiplying by number of specimens is inacurrate.
+
 For a full list of libraries used in this script, please refer to requirements.txt
 
 For any further enquiries, please contact zwkho1@sheffield.ac.uk or v.cheong@sheffield.ac.uk

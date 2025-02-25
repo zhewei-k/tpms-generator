@@ -5,11 +5,8 @@ from datetime import datetime
 
 #initial values
 latticetype_0 = 0
-cellsize_0 = 4.5           #mm
-# scaffold_size = 5.0         #mm not used
-
-# stiffness_scaffold_0 = 110         #Pa not used
-stiffness_bone = 2500000000               #Pa
+cellsize_0 = 3.0                      #mm
+stiffness_bone = 4e9               #Pa
 
 now = datetime.now()
 
@@ -28,15 +25,15 @@ def cuboidCompression(mesh, force, count):
         distributed_force (float): calculated force applied on each unit cell
         distributed_strain (float): calculated strain received by each unit cell
     """
-    lengthnum = 4
-    widthnum = 4
+    lengthnum = 3
+    widthnum = 3
     heightnum = 5 #unit cells
 
     distributed_force = np.divide(force, np.multiply(lengthnum, widthnum)) # divide force over number of unit cells, sigma = force / area
     _, strain = digital_lab.compressionV2(mesh, distributed_force, count)         # run simulation in Ansys
-    distributed_strain = np.divide(strain, heightnum) # divide strain over number of unit cells, strain = displacement / height
+    # distributed_strain = np.multiply(strain, heightnum) # multiply strain over number of unit cells, strain = displacement / height
     
-    return distributed_force, distributed_strain
+    return distributed_force, strain
 
 def generate(csv_fname, lat, cell, thick, elementmultiplier, force, count):
     """Generates a new mesh and runs a simulation for latest parameters
@@ -140,9 +137,9 @@ def secantV2(csv_fname, x, max_it, tol, force, count = None, x_prev = None, stif
     """Secant method is a root-finding-method to locate
 
     Args:
-        x (float): 
+        x (float): estimated value of the actual thickness
         max_it (int): _description_
-        tol (float): _description_
+        tol (float): to estimate the value of the previous thickness by a tolerance value
         force (float): force applied on specimen (N)
         count (int, optional): _description_. Defaults to None.
         x_prev (float, optional): _description_. Defaults to None.
@@ -159,7 +156,7 @@ def secantV2(csv_fname, x, max_it, tol, force, count = None, x_prev = None, stif
     if count is None:
         count = 0
         x_prev = np.add(x, np.multiply(tol,1.0005))   # to estimate x_prev
-        _, stiffness_prev = generate(csv_fname,latticetype_0, cellsize_0, x_prev, 1, force, count)
+        _, stiffness_prev = generate(csv_fname,latticetype_0, cellsize_0, x_prev, 1, force, count) # changed multiplier to 0.3
         # stiffness_prev = 646196877.7888234
         
     try:
