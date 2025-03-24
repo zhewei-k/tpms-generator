@@ -1,7 +1,4 @@
---------------------
-READ ME
---------------------
-# 11.10.2024
+# README 11.10.2024
 
 tpms_generator_v2 is a script developed by Zhe-Wei Kho, under the supervision of Vee San Cheong. This was developed with the objective of improving the efficiency of developing optimised TPMS scaffolds for implants as part of SURE Scheme 2024.
 
