@@ -30,9 +30,9 @@
         },
         {
             "description": "",
-            "name": "Counter",
+            "name": "File Directory",
             "type": "text",
-            "value": "9"
+            "value": "C:/Users/User/Documents/GitHub/fyp"
         }
     ],
     "title": "TPMS Generator"

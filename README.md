@@ -1,21 +1,21 @@
---------------------
-READ ME
---------------------
-# 11.10.2024
+# TPMS GENERATOR READ ME
 
-tpms_generator_v2 is a script developed by Zhe-Wei Kho, under the supervision of Vee San Cheong. This was developed with the objective of improving the efficiency of developing optimised TPMS scaffolds for implants as part of SURE Scheme 2024.
+TPMS Generator is a script developed by Zhe-Wei Kho, under the supervision of Vee San Cheong. This was developed with the objective of improving the efficiency of developing optimised TPMS scaffolds for implants. This project was proudly supported by the University of Sheffield's Undergraduate Research Scheme (SURE) 2024 for its initial development between July 2024 and August 2024.
 
-Version 2 of this script makes use of Ansys PyMAPDL and nTop Automate to enable iterations to be completed seamlessly. These come in the form of:
-- List processing, and
-- Secant method root finding
+TPMS Generator makes use of Ansys PyMAPDL and nTop Automate to enable iterations to be completed seamlessly. These come in the form of:
+- list processing
+- secant method root finding
+- as well as mesh convergence capabilities
 
 Run times can vary between 15 minutes up to 2 hours.
 
-Bug fixes:
-- updated strain in compression, previously was not accurate as multiplying by number of specimens is inacurrate.
+For a full list of libraries used in this script, please refer to *requirements.txt*
 
-For a full list of libraries used in this script, please refer to requirements.txt
+## Bug Fixes
+- Fixed an issue with strain in compression being inaccurate.
 
-For any further enquiries, please contact zwkho1@sheffield.ac.uk or v.cheong@sheffield.ac.uk
+## Contact
+Zhe-Wei Kho - [zwkho1@sheffield.ac.uk](mailto:zwkho1@sheffield.ac.uk)
+Vee San Cheong - [v.cheong@sheffield.ac.uk](mailto:v.cheong@sheffield.ac.uk)
 
--ZWK
+Last Updated: 24th March 2025

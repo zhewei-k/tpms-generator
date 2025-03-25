@@ -8,22 +8,29 @@ Requires the following files to be in the same folder directory
 """
 
 #Imports
-import os, subprocess, json, shutil, time, numpy as np
+import os, subprocess, json, shutil, time, logger, numpy as np
 from volume_calculator import STLUtils
-
 
 #Assuming this script, ntop file, and json files will be in the same folder
 Current_Directory = os.path.dirname(os.path.realpath('__file__')) 
 exePath = r"ntopcl"  #nTopCL path, raw string
 nTopFilePath = r"tpms_no_porosity_dynamic.ntop"   #nTop notebook file name, raw string
-input_file_name = "input_tpms.json"      #JSON input file name to be saved as
-output_file_name = "output_tpms.json"       #JSON output file name to be saved as
+
+input_file_name = r"input_tpms.json"      #JSON input file name to be saved as
+output_file_name = r"output_tpms.json"       #JSON output file name to be saved as
 
 #Input variables in JSON structure
 with open('input_template.json','r') as f:
     Inputs_JSON = json.load(f)
 
-def calculatePorosity(cellsize, count):
+def main():
+    logger.folder()
+    print("MAIN IS RUNNING")
+    #print(mesh(0,5,1,1))
+    meshList([0],[5],[0.3,0.4])
+    
+
+def calculatePorosity(cellsize, dir):
     """Calculates porosity
 
     Args:
@@ -34,8 +41,8 @@ def calculatePorosity(cellsize, count):
         porosity (float): volume of TPMS geometry (mm^3) / volume of bounding box (mm^3)
         mesh_density (float): number of triangles (#) / surface area (mm^2)
     """
-    vcal = STLUtils() #calculate STL volume to improve speed
-    elements = vcal.loadSTL('./data/'+str(count)+'/'+'tpms_mesh.stl')
+    vcal = STLUtils() #calculate STL volume
+    elements = vcal.loadSTL(os.path.join(dir, r'tpms_mesh.stl'))
     tpms_volume = vcal.calculateVolume("cm") * 1000     #volume cm^3 -> mm^3
     tpms_area = vcal.surf_area()                        #surface area cm -> mm^3
     mesh_density = elements / tpms_area                 #elements per mm^3
@@ -78,6 +85,7 @@ def elementSize(cellsize, thickness, elementmultiplier):
         raise Exception("Element size has not been successfully generated")
     return element_size * elementmultiplier
 
+@logger.timer #for visualisation
 def meshList(latticetype:list,cellsize:list,thickness:list):
     """Takes in input parameters and runs nTop to output porosity and corresponding STL mesh into independent folders specified by count. Returns a summary as a CSV file.
 
@@ -86,18 +94,12 @@ def meshList(latticetype:list,cellsize:list,thickness:list):
         cellSize (list): list of size of unit cells (mm)
         thickness (list): list of thickness of tpms unit cells (mm)
     """    
-    start_time = time.time()
-
     #CSV File to store porosity values
     CSV_file = "tpms_meshList.csv"
     Header = ['Count', 'Lattice Type', 'Cell Size', 'Thickness', 'Porosity', 'Mesh Density']
     output_file = open(CSV_file, mode='w')
     output_file.write(",".join(Header)+'\n')
     output_file.close()
-
-    if os.path.isdir('./data/'):    #checks whether "data" folder is present,
-        shutil.rmtree('./data/')    #if yes, deletes "data" folder
-    os.mkdir('./data/')             #creates folder
 
     count = 0
     #looping through all configurations
@@ -109,7 +111,7 @@ def meshList(latticetype:list,cellsize:list,thickness:list):
                 Inputs_JSON['inputs'][1]['value'] = j                           #looping cellSize
                 Inputs_JSON['inputs'][2]['value'] = k                           #looping thickness
                 Inputs_JSON['inputs'][3]['value'] = elementSize(j,k)              #calculate element size
-                Inputs_JSON['inputs'][4]['value'] = str(count)                  #ref for file location
+                Inputs_JSON['inputs'][4]['value'] = logger.folder.directory                 #ref for file location
 
                 #defining input and output JSON paths
                 input_path = './data/'+str(count)+'/'+input_file_name           #path for input JSON for that iteration
@@ -149,8 +151,7 @@ def meshList(latticetype:list,cellsize:list,thickness:list):
                 print(summary)
                 count += 1
 
-    print("--- %s seconds ---" % (time.time() - start_time)) #prints completed time
-
+@logger.timer
 def mesh(latticetype:int,cellsize:float,thickness:float,elementmultiplier:float,count:int):
     """Takes in input parameters and runs nTop to output porosity and corresponding STL mesh into independent folders specified by count. Returns a summary of the input values as a list, including porosity.
 
@@ -163,25 +164,22 @@ def mesh(latticetype:int,cellsize:float,thickness:float,elementmultiplier:float,
     Returns:
         summary (list): returns the count, latticeType, cellSize, thickness, and porosity.
     """
-    start_time = time.time()
-
-    #for running as an individual function
-    if not(os.path.isdir('./data/')):    #checks whether "data" folder is present,
-        os.mkdir('./data/')              #if not present, creates folder
-    folder = os.path.join('./data/',str(count))
-    if os.path.isdir(folder):    #checks whether "data" folder is present,
-        shutil.rmtree(folder)    #if yes, deletes "data/count" folder
-    os.mkdir('./data/'+str(count))
+    # start_time = time.time()
+    directory = logger.folder.directory     #directory should be created already.
+    directory = os.path.join(directory,str(count))
+    if os.path.isdir(directory):    #checks whether "data/count" folder is present,
+        shutil.rmtree(directory)    #if yes, deletes "data/count" folder
+    os.mkdir(directory)
 
     Inputs_JSON['inputs'][0]['value'] = latticetype
     Inputs_JSON['inputs'][1]['value'] = cellsize
     Inputs_JSON['inputs'][2]['value'] = thickness
     Inputs_JSON['inputs'][3]['value'] = element_size = elementSize(cellsize, thickness, elementmultiplier)
-    Inputs_JSON['inputs'][4]['value'] = str(count)                  #ref for file location
+    Inputs_JSON['inputs'][4]['value'] = directory                  #ref for file location
 
     #defining input and output JSON paths
-    input_path = './data/'+str(count)+'/'+input_file_name           #path for input JSON for that iteration
-    output_path = './data/'+str(count)+'/'+output_file_name         #path for output JSON for that iteration
+    input_path = os.path.join(directory,input_file_name)           #path for input JSON for that iteration
+    output_path = os.path.join(directory,output_file_name)         #path for output JSON for that iteration
 
     #appends nTopCL arguments as a list for concatenation later
     Arguments = [exePath]               #nTopCL path
@@ -208,16 +206,15 @@ def mesh(latticetype:int,cellsize:float,thickness:float,elementmultiplier:float,
     #     data = json.load(f)             #load json file
     #     porosity = data[0]["value"]["val"]
 
-    porosity, mesh_density = calculatePorosity(cellsize,count)
-    summary = [count, latticetype, cellsize, thickness, porosity, element_size]        #attach to summary
+    porosity, mesh_density = calculatePorosity(cellsize,directory)
 
     print(f"### {count} TPMS Generation Finished")
-    print("--- %s seconds ---" % (time.time() - start_time))  
 
-    return summary
+    # summary = [count, latticetype, cellsize, thickness, porosity, element_size]        #attach to summary
+    # print("------- %s seconds -------" % (time.time() - start_time))  
+
+    return count, latticetype, cellsize, thickness, porosity, element_size
 
 if __name__ == "__main__":
-    print("MAIN IS RUNNING")
-    #print(mesh(0,5,1,1))
-    meshList([0],[5],[0.3,0.4])
+    main()
 

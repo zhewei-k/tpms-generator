@@ -30,7 +30,7 @@ def cuboidCompression(mesh, force, count):
     heightnum = 5 #unit cells
 
     distributed_force = np.divide(force, np.multiply(lengthnum, widthnum)) # divide force over number of unit cells, sigma = force / area
-    _, strain = digital_lab.compressionV2(mesh, distributed_force, count)         # run simulation in Ansys
+    _, strain = digital_lab.compressionV3(mesh, distributed_force, count)         # run simulation in Ansys
     # distributed_strain = np.multiply(strain, heightnum) # multiply strain over number of unit cells, strain = displacement / height
     
     return distributed_force, strain

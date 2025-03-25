@@ -1,41 +1,34 @@
-import ntpms, digital_lab, os, shutil
+'''
+TPMS GENERATOR AND ANALYSIS TOOL
+Author: Zhe-Wei Kho and Vee San Cheong
+Description: Script that generates TPMS solids as STL files and CDB files and conducts simple analysis on them.
+'''
+
+import ntpms, digital_lab, logger
 import matplotlib.pyplot as plt
 import numpy as np
-from datetime import datetime
 
 #initial values
-latticetype_0 = 0
-cellsize_0 = 3.0                      #mm
-stiffness_bone = 5.5e9               #Pa
+latticetype_0 = 0       #global, constant
+cellsize_0 = 3.0        #global, constant mm
+target_stiffness = 5.5e9  #Pa
 
-now = datetime.now()
+# @logger.timer #for visualisation
+def main():
+    print("### TPMS ANALYSIS STARTED")
 
-def char_equation(stiffness):
-    return stiffness - stiffness_bone
+    directory = logger.folder() #directory can be accessed via export.folder.directory
+    thickness_final_list, stiffness_final_list, ext_count = converge_exponential(latticetype_0, cellsize_0, 0.5, 3, 1000.0)
 
-def extrapolate_cuboid(mesh, force, count):
-    """Calculates forces for a 4x4x5 unit cell cuboid specimen
-
-    Args:
-        force (float): force applied on specimen (N)
-        strain (float): displacement with respect to length of specimen in direction of force
-        count (int): folder reference number eg ./data/count
-
-    Returns:
-        distributed_force (float): calculated force applied on each unit cell
-        distributed_strain (float): calculated strain received by each unit cell
-    """
-    lengthnum = 3
-    widthnum = 3
-    heightnum = 5 #unit cells
-
-    distributed_force = np.divide(force, np.multiply(lengthnum, widthnum)) # divide force over number of unit cells, sigma = force / area
-    _, strain = digital_lab.compressionV2(mesh, distributed_force, count)         # run simulation in Ansys
-    # distributed_strain = np.multiply(strain, heightnum) # divide strain over number of unit cells, strain = displacement / height
+    print("### TPMS ANALYSIS COMPLETE")
+    print(f"Data has been stored in {directory}")
+    for i in range(0,ext_count):
+        print(f"[{i}] --- THICKNESS (mm) {thickness_final_list[i]}")
+        print(f"[{i}] --- STIFFNESS (Pa) {stiffness_final_list[i]}")
     
-    return distributed_force, strain
+    # os.chdir("..") #reset to original directory
 
-def simulate_mesh(csv_fname, lat, cell, thick, elementmultiplier, force, count):
+def simulate_mesh(CSV_file, lat, cell, thick, elementmultiplier, force, count):
     """Generates a new mesh and runs a simulation for latest parameters
 
     Args:
@@ -48,29 +41,65 @@ def simulate_mesh(csv_fname, lat, cell, thick, elementmultiplier, force, count):
         summary (list): includes lattice type, cell size, thickness, element multiplier and count.
         stiffness (float): 
     """
+    @logger.timer #this timer is logged!
+    def extrapolate_cuboid(mesh, force, count):
+        """Calculates forces for a 4x4x5 unit cell cuboid specimen
+
+        Args:
+            force (float): force applied on specimen (N)
+            strain (float): displacement with respect to length of specimen in direction of force
+            count (int): folder reference number eg ./data/count
+
+        Returns:
+            distributed_force (float): calculated force applied on each unit cell
+            distributed_strain (float): calculated strain received by each unit cell
+        """
+        lengthnum = 1
+        widthnum = 1
+        heightnum = 5 #unit cells
+
+        distributed_force = np.divide(force, np.multiply(lengthnum, widthnum)) # divide force over number of unit cells, sigma = force / area
+        _, strain = digital_lab.compressionV3(mesh, distributed_force, count)         # run simulation in Ansys
+        # distributed_strain = np.multiply(strain, heightnum) # divide strain over number of unit cells, strain = displacement / height
+        
+        return distributed_force, strain
     
     mesh = "tpms_mesh.cdb"
 
     print(f"### {count} TPMS thickness {thick}")
-    summary = ntpms.mesh(lat, cell, thick, elementmultiplier, count)                   # generate mesh in nTop
+    count, latticetype, cellsize, thickness, porosity, element_size = ntpms.mesh(lat, cell, thick, elementmultiplier, count)                   # generate mesh in nTop
     # _, strain = digital_lab.compressionV2(mesh, force, count)         # run simulation in Ansys
     force, strain = extrapolate_cuboid(mesh, force, count)           #run simulation in Ansys as a test 
     stress = force / (cellsize_0 * cellsize_0 * 0.000001)     # convert back to m^2
     stiffness = stress / strain
 
-    summary.append(strain)
-    summary.append(force)
-    summary.append(stiffness)
-    output_file = open(csv_fname, mode = 'a')                           # append to csv
-    output_file.write(",".join([str(i) for i in summary]) + '\n')       # write to csv by inputting a piece of data and then creating a blank line
-    output_file.close()                                                 # close csv
-    print(summary)                                                      # [count, latticetype, cellsize, thickness, porosity, element_size, strain, force, stiffness]
-    print("\n")
+    logger.dataset['Count'] = count
+    logger.dataset['LatticeType'] = latticetype 
+    logger.dataset['CellSize'] = cellsize
+    logger.dataset['Thickness'] = thickness
+    logger.dataset['Porosity'] = porosity
+    logger.dataset['ElementSize'] = element_size
+    logger.dataset['Force'] = force
+    logger.dataset['Strain'] = strain
+    logger.dataset['Stiffness'] = stiffness 
+    logger.spreadsheet(logger.dataset,CSV_file) #writes to CSV
 
-    return summary, stiffness
+    print(logger.dataset.values())
 
-def define_secant(csv_fname, x, max_it, tol, force, count = None, x_prev = None, stiffness_prev = None):
-    """Secant method is a root-finding-method that optimises using thickness.
+    # summary.append(strain)
+    # summary.append(force)
+    # summary.append(stiffness)
+    # output_file = open(csv_fname, mode = 'a')                           # append to csv
+    # output_file.write(",".join([str(i) for i in summary]) + '\n')       # write to csv by inputting a piece of data and then creating a blank line
+    # output_file.close()                                                 # close csv
+    # print(summary)                                                      # [count, latticetype, cellsize, thickness, porosity, element_size, strain, force, stiffness]
+    # print("\n")
+
+    return stiffness
+
+def secant(x, max_it, tol, force):
+    """
+    Secant method is a root-finding-method that optimises using thickness.
 
     Args:
         x (float): estimated value of the actual thickness
@@ -87,52 +116,51 @@ def define_secant(csv_fname, x, max_it, tol, force, count = None, x_prev = None,
     Returns:
         x (float): optimised unit cell thickness (mm)
         stiffness (float): optimised unit cell stiffness matched with bone stiffness(Pa)
-    """
-    
-    if count is None:
-        count = 0
-        x_prev = np.add(x, np.multiply(tol,1.0005))   # to estimate x_prev
-        _, stiffness_prev = simulate_mesh(csv_fname,latticetype_0, cellsize_0, x_prev, 1, force, count) # changed multiplier to 0.3
-        # stiffness_prev = 646196877.7888234
+    """    
+    def define_secant(CSV_file, x, max_it, tol, force, count = None, x_prev = None, stiffness_prev = None):        
+        if count is None:
+            count = 0
+            x_prev = np.add(x, np.multiply(tol,1.0005))   # to estimate x_prev
+            _, stiffness_prev = simulate_mesh(CSV_file,latticetype_0, cellsize_0, x_prev, 1, force, count) # changed multiplier to 0.3
+            # stiffness_prev = 646196877.7888234
         
-    try:
-        count += 1
-        _, stiffness = simulate_mesh(csv_fname,latticetype_0, cellsize_0, x, 1, force, count)
+        def char_equation(stiffness):
+            return stiffness - target_stiffness
 
-        grad = np.divide(
-            np.subtract(char_equation(stiffness), char_equation(stiffness_prev)), #calculate new parameters
-            np.subtract(x, x_prev)
-        )
+        try:
+            count += 1
+            stiffness = simulate_mesh(CSV_file,latticetype_0, cellsize_0, x, 1, force, count)
 
-        x_new = np.subtract(x, np.divide(char_equation(stiffness), grad))
-        print(f"### {count} grad: {grad}")
-        print(f"### {count} x_new: {x_new}")
+            grad = np.divide(
+                np.subtract(char_equation(stiffness), char_equation(stiffness_prev)), #calculate new parameters
+                np.subtract(x, x_prev)
+            )
 
-        if x_new <= 0:
-            raise Exception("Next iteration thickness is a negative value.")
+            x_new = np.subtract(x, np.divide(char_equation(stiffness), grad))
+            print(f"### {count} grad: {grad}")
+            print(f"### {count} x_new: {x_new}")
 
-        if count >= max_it:         # analysis stops when we reach max_it
-            print(f"### {count} Exceeded maximum iterations.")
-            print(f"### {count} Consider changing initial conditions (x, max_it or tol).")
-            return x, stiffness
+            if x_new <= 0:
+                raise Exception("Next iteration thickness is a negative value.")
 
-        if abs(char_equation(stiffness)) < 1e8:
-            print(f"### {count} Optimisation complete.")
-            print(f"x is {x}; x_new is {x_new}; x-x_new is {abs(x - x_new)}")
-            print(f"x is {x}; x_new is {x_new}; x-x_new is {np.abs(np.subtract(x, x_new))}")
-            return x, stiffness   
-        
-        return define_secant(csv_fname, x_new, max_it, tol, force, count, x, stiffness)
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        quit()  #exit
+            if count >= max_it:         # analysis stops when we reach max_it
+                print(f"### {count} Exceeded maximum iterations.")
+                print(f"### {count} Consider changing initial conditions (x, max_it or tol).")
+                return x, stiffness
 
-def execute_secant(x, max_it, tol, force):
-    CSV_file = "tpms_secant_"+now.strftime("%Y_%m_%d_%H%M")+".csv"
-    Header = ['Count', 'Lattice Type', 'Cell Size', 'Thickness', 'Porosity', 'Mesh Size', 'Strain', 'Force', 'Stiffness']
-    output_file = open(CSV_file, mode='w')
-    output_file.write(",".join(Header)+'\n')
-    output_file.close()
+            if abs(char_equation(stiffness)) < 1e8:
+                print(f"### {count} Optimisation complete.")
+                print(f"x is {x}; x_new is {x_new}; x-x_new is {abs(x - x_new)}")
+                print(f"x is {x}; x_new is {x_new}; x-x_new is {np.abs(np.subtract(x, x_new))}")
+                return x, stiffness   
+            
+            return define_secant(CSV_file, x_new, max_it, tol, force, count, x, stiffness)
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            quit()  #exit
+
+    CSV_file = "tpms_secant.csv"
+    logger.spreadsheet(logger.dataset,CSV_file)
 
     x_final, stiffness_final = define_secant(CSV_file, x, max_it, tol, force)
 
@@ -154,11 +182,8 @@ def process_list(max_x:float, min_x:float, step:float, force:float):
 
     count = 0
     
-    CSV_file = "tpms_list_"+now.strftime("%Y_%m_%d_%H%M")+".csv"
-    Header = ['Count', 'Lattice Type', 'Cell Size', 'Thickness', 'Porosity', 'Mesh Size', 'Stress', 'Strain', 'Stiffness']
-    output_file = open(CSV_file, mode='w')
-    output_file.write(",".join(Header)+'\n')
-    output_file.close()
+    CSV_file = "tpms_list.csv"
+    # logger.spreadsheet(logger.dataset,CSV_file)
 
     max_x = int(max_x*1000)
     min_x = int(min_x*1000)
@@ -170,24 +195,23 @@ def process_list(max_x:float, min_x:float, step:float, force:float):
     stiffness_list = []
 
     for x in x_list:
-        _, stiffness = simulate_mesh(CSV_file, latticetype_0, cellsize_0, x, 1, force, count)                 # generate mesh in nTop
+        stiffness = simulate_mesh(CSV_file, latticetype_0, cellsize_0, x, 1, force, count)                 # generate mesh in nTop
         stiffness_list.append(stiffness)                                                    # run simulation in Ansys
         count +=1
     
-    nearest_stiffness = min(stiffness_list, key=lambda x: abs(x - stiffness_bone))          # calculates absolute difference and find minimum value
+    #finds closest correlation
+    nearest_stiffness = min(stiffness_list, key=lambda x: abs(x - target_stiffness))          # calculates absolute difference and find minimum value
     nearest_stiffness_id = stiffness_list.index(nearest_stiffness)                          # finds index of minimum value
     nearest_x = x_list[nearest_stiffness_id]    # finds corresponding thickness
+    print(f"Target stiffness: {target_stiffness/1e9} GPa")
+    print(f"Closest stiffness: {nearest_x/1e9} GPa")
 
-    return nearest_x, nearest_stiffness
+def converge_linear(lat, cell, thick, large_elementmultiplier:float, small_elementmultiplier:float, step:float, force:float):
 
-def converge_stiffness(lat, cell, thick, large_elementmultiplier:float, small_elementmultiplier:float, step:float, force:float):
     count = 0
     
-    CSV_file = "tpms_convergence_"+now.strftime("%Y_%m_%d_%H%M")+".csv"
-    Header = ['Count', 'Lattice Type', 'Cell Size', 'Thickness', 'Porosity', 'Mesh Size', 'Strain', 'Force', 'Stiffness']
-    output_file = open(CSV_file, mode='w')
-    output_file.write(",".join(Header)+'\n')
-    output_file.close()
+    CSV_file = "tpms_convergence_linear.csv"
+    # logger.spreadsheet(logger.dataset,CSV_file)
 
     large_elementmultiplier = int(large_elementmultiplier*1000)
     small_elementmultiplier = int(small_elementmultiplier*1000)
@@ -199,9 +223,8 @@ def converge_stiffness(lat, cell, thick, large_elementmultiplier:float, small_el
     stiffness_list = []
 
     for i in multiplier_list:
-        _, stiffness = simulate_mesh(CSV_file, lat, cell, thick, i, force, count)                 # generate mesh in nTop
+        stiffness = simulate_mesh(CSV_file, lat, cell, thick, i, force, count)                 # generate mesh in nTop
         stiffness_list.append(stiffness)
-                                                            # run simulation in Ansys
         count +=1
     
     plt.style.use('_mpl-gallery')
@@ -211,26 +234,64 @@ def converge_stiffness(lat, cell, thick, large_elementmultiplier:float, small_el
     y = stiffness_list
 
     plt.figure(1, layout='constrained')
-    plt.scatter(x,y)
+    plt.scatter(x, y, color='blue', label='Data points')
+    plt.plot(x, y, color='red', label='Line')
+
     plt.xlabel('multiplier')
     plt.ylabel('stiffness (Pa)')
-    plt.show()
+    plt.title('Mesh Convergence with Exponential Increase in Mesh Size')
+    plt.legend()
+    plt.grid(True)
 
     return multiplier_list, stiffness_list, count
 
-def main():
-    print("---- TPMS ANALYSIS STARTED ----")
+def converge_exponential(lat, cell, thick, stop_val:float, force:float):
+    """Conducts a mesh convergence check to investigate the mesh convergence capabilities
 
-    if os.path.isdir('./data/'):    #checks whether "data" folder is present,
-        shutil.rmtree('./data/')    #if yes, deletes "data" folder
-    os.mkdir('./data/')             #creates folder if data folder for storing data
+    Args:
+        latticeType (str): 0-Gyroid, 1-Schwarz, 2-Diamond, 3-Lidinoid, 4-SplitP, 5-Neovius
+        cellSize (float): size of unit cell (mm)
+        thickness (float): thickness of tpms unit cell (mm)
+        count (int) : folder reference number eg ./data/count
+
+    Returns:
+        multiplier_list, stiffness_list, count
+    """
+    count = 0
     
-    thickness_final_list, stiffness_final_list, ext_count = converge_stiffness(0, 3, 0.66, 0.9, 0.2, 0.1, 100.0)
+    CSV_file = "tpms_converge_exponential.csv"
+    # logger.spreadsheet(logger.dataset,CSV_file)
 
-    print("---- TPMS ANALYSIS COMPLETE ----")
-    print("Data has been stored in ./data/")
-    for i in range(0,ext_count):
-        print(f"THICKNESS (mm) {thickness_final_list[i]} ---  STIFFNESS (Pa) {stiffness_final_list[i]}")
+    multiplier_list = []
+    for i in range(0, stop_val):
+        multiplier = 1.0 / float(2**i)
+        multiplier_list.append(multiplier)
+
+    stiffness_list = []
+    for j in multiplier_list:
+        stiffness = simulate_mesh(CSV_file, lat, cell, thick, j, force, count)                 # generate mesh in nTop
+        stiffness_list.append(stiffness)
+        count +=1
+    
+    plt.style.use('_mpl-gallery')
+
+    # data
+    x = multiplier_list
+    y = stiffness_list
+
+    plt.figure(1, layout='constrained')
+    plt.scatter(x, y, color='blue', label='Data points')
+    plt.plot(x, y, color='red', label='Line')
+
+    plt.xlabel('multiplier')
+    plt.ylabel('stiffness (Pa)')
+    plt.title('Mesh Convergence with Exponential Increase in Mesh Size')
+    plt.legend()
+    plt.grid(True)
+
+    plt.show()
+
+    return multiplier_list, stiffness_list, count
     
 
 if __name__ == "__main__":
