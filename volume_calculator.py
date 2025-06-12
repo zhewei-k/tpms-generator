@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 '''
 VOLUME CALCULATION STL MODELS
 Author: Mar Canet (mar.canet@gmail.com) - September 2012-2023

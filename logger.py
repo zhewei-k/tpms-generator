@@ -1,7 +1,13 @@
+'''
+------------
+LOGGER
+------------
+LOGGER keeps track of time and outputting data into a spreadsheet. 
+'''
+
 from functools import wraps
 import os, shutil, time, csv
 from datetime import datetime
-# os.chdir(directory)              #not a good idea as it modifies the codebase
 
 dataset = {
     'Count':None,        #int
@@ -94,11 +100,6 @@ def spreadsheet(data_dict, filename='log.csv', mode='a'):
         
         # Write data
         writer.writerow(data_dict)
-
-    # Header = ['Count', 'Lattice Type', 'Cell Size (mm)', 'Thickness (mm)', 'Porosity (mm)', 'Element Size (mm)', 'Strain', 'Force (N)', 'Stiffness (GPa)']
-    # output_file = open(abs_directory, mode='w')
-    # output_file.write(",".join(Header)+'\n')
-    # output_file.close()
 
 if __name__ == "__main__":
     main()
