@@ -14,6 +14,7 @@ import os, psutil, logger
 import ansys.mapdl.core as pymapdl
 
 def main():
+    #custom commands when cdb file has been generated
     custom = r'C:\\Users\\User\\Documents\\GitHub\\fyp\\data\\2025_05_06_1814'
     logger.folder(custom)
     custom = os.path.join(custom,'99','tpms_mesh.cdb' )
@@ -21,6 +22,7 @@ def main():
     # main_fetch_enum()
 
 def main_fetch_enum():
+    #to calculate element number
     custom = r'C:\\Users\\User\\Documents\\GitHub\\fyp\\data-final\\2025_03_31_2036 - 0.4'
     logger.folder(custom)
     count = '3'
