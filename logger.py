@@ -6,11 +6,14 @@ from datetime import datetime
 dataset = {
     'Count':None,        #int
     'ExecutionTime':None,#str
+    'ElementNum':None,   #int
+    'NodeNum':None,      #int
     'LatticeType':None,  #int
     'CellSize':None,     #float
     'Thickness':None,    #float
     'Porosity':None,     #float
     'ElementSize':None,  #float
+    'InternalStress':None,       #float
     'Strain':None,       #float
     'Force':None,        #float
     'Stiffness':None,    #float
@@ -42,26 +45,29 @@ def timer(func):
     return wrapper
     
 
-def folder():
+def folder(custom_directory=""):
     """Creates a folder in the data folder.
-
     Args:
         None
     
     Returns:
         directory (str): 
-    """  
-    current_time = datetime.now().strftime("%Y_%m_%d_%H%M")
-    cwd = os.getcwd()
-    print(f"Directory has been created at: {cwd}")
-    directory = os.path.join(cwd,"data",current_time)
+    """
+    if custom_directory:
+        directory = custom_directory
+        print(f"### Directory reused at: {directory}")
+    else:
+        current_time = datetime.now().strftime("%Y_%m_%d_%H%M")
+        cwd = os.getcwd()
+        directory = os.path.join(cwd,"data",current_time)
+        print(f"### Directory has been created at: {directory}")
 
-    if os.path.isdir(directory):    #checks whether "data" folder is present,
-        shutil.rmtree(directory)    #if yes, deletes "data" folder
-    os.mkdir(directory)             #creates folder if data folder for storing data
+        if os.path.isdir(directory):    #checks whether "data" folder is present,
+            shutil.rmtree(directory)    #if yes, deletes "data" folder
+        os.mkdir(directory)             #creates folder if data folder for storing data
     
     setattr(folder,'directory',directory)
-    return directory    
+    return directory
 
 
 def variable(array, var):

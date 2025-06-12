@@ -8,7 +8,7 @@ Requires the following files to be in the same folder directory
 """
 
 #Imports
-import os, subprocess, json, shutil, time, logger, numpy as np
+import os, subprocess, json, shutil, logger
 from volume_calculator import STLUtils
 
 #Assuming this script, ntop file, and json files will be in the same folder
@@ -30,7 +30,7 @@ def main():
     meshList([0],[5],[0.3,0.4])
     
 
-def calculatePorosity(cellsize, dir):
+def calculatePorosity(cellsize, directory):
     """Calculates porosity
 
     Args:
@@ -42,16 +42,19 @@ def calculatePorosity(cellsize, dir):
         mesh_density (float): number of triangles (#) / surface area (mm^2)
     """
     vcal = STLUtils() #calculate STL volume
-    elements = vcal.loadSTL(os.path.join(dir, r'tpms_mesh.stl'))
+    elements = vcal.loadSTL(os.path.join(directory, r'tpms_mesh.stl'))
+    # logger.dataset['ElementNum'] = elements
     tpms_volume = vcal.calculateVolume("cm") * 1000     #volume cm^3 -> mm^3
-    tpms_area = vcal.surf_area()                        #surface area cm -> mm^3
-    mesh_density = elements / tpms_area                 #elements per mm^3
+    # tpms_area = vcal.surf_area()                        #surface area cm -> mm^3
+    # mesh_density = elements / tpms_area                 #elements per mm^3
     bounding_box_volume = cellsize ** 3
     porosity = (bounding_box_volume - tpms_volume) / bounding_box_volume
+    relative_density = 1.0 - porosity
+    print(f'Relative Density: {relative_density}')
 
-    return porosity, mesh_density
+    return porosity
 
-def elementSize(cellsize, thickness, elementmultiplier):
+def elementSize(cellsize, thickness, e_multiplier):
     """Calculate element size for meshing at ideal resolution for the range of 0.1mm - 2mm TPMS thickness.
 
     Args:
@@ -68,22 +71,31 @@ def elementSize(cellsize, thickness, elementmultiplier):
     # |  ____
     # | /
     # |------------> thickness
-
-    lower_thickness_threshold = 0.1
-    upper_thickness_threshold = 0.4
-    cellsize_ref = 5
-    scale = cellsize_ref / cellsize
-    scaled_thickness = thickness * scale    # scale to match 5MM unit cell
     
-    if scaled_thickness <= lower_thickness_threshold:
-        element_size = thickness * 1.1                            
-    elif lower_thickness_threshold < scaled_thickness < upper_thickness_threshold:
-        element_size = np.round(0.12 / scale,3) # larger element size if cell size is large
-    elif scaled_thickness >= upper_thickness_threshold:
-        element_size = 0.22 / scale  # larger element size if cell size is large
-    else:
-        raise Exception("Element size has not been successfully generated")
-    return element_size * elementmultiplier
+    # lower_threshold = 0.1
+    # upper_threshold = 0.4
+    # cellsize_ref = 5
+
+    # scale = cellsize_ref / cellsize
+    # scaled_thickness = thickness * scale    # scale to match 5MM unit cell
+    
+    # if scaled_thickness <= lower_threshold:
+    #     e_size = thickness * 1.1                            
+    # elif lower_threshold < scaled_thickness < upper_threshold:
+    #     # element_size = np.round(0.12 / scale,3) # larger element size if cell size is large
+    #     e_size = thickness / 2 * 1.1
+    # elif scaled_thickness >= upper_threshold:
+    #     # e_size = 0.22 / scale  # larger element size if cell size is large
+    #     e_size = thickness / 3 * 1.1
+    # else:
+    #     raise Exception("Element size has not been successfully generated")
+    # cellsize_ref = 5
+    # scale = cellsize_ref / cellsize
+    e_size = 0.05
+    # e_size = 0.05
+    if thickness <= 0.05:
+        raise Exception("Thickness too small")
+    return e_size * e_multiplier
 
 @logger.timer #for visualisation
 def meshList(latticetype:list,cellsize:list,thickness:list):
@@ -190,8 +202,8 @@ def mesh(latticetype:int,cellsize:float,thickness:float,elementmultiplier:float,
     Arguments.append(output_path)       #output json path
     Arguments.append(nTopFilePath)      #.ntop notebook file path
 
-    print(f"### {count} TPMS Generation Started")
-    print(f"### {count} Element size is {element_size}")
+    print(f"### [{count}] --- TPMS Generation Started")
+    print(f"### [{count}] --- Element size is {element_size}")
 
     with open(input_path, 'w') as outfile:          #creates input JSON file
         json.dump(Inputs_JSON, outfile, indent=4)    
@@ -206,14 +218,20 @@ def mesh(latticetype:int,cellsize:float,thickness:float,elementmultiplier:float,
     #     data = json.load(f)             #load json file
     #     porosity = data[0]["value"]["val"]
 
-    porosity, mesh_density = calculatePorosity(cellsize,directory)
+    porosity = calculatePorosity(cellsize,directory)
 
-    print(f"### {count} TPMS Generation Finished")
+    print(f"### [{count}] --- TPMS Generation Finished")
 
     # summary = [count, latticetype, cellsize, thickness, porosity, element_size]        #attach to summary
     # print("------- %s seconds -------" % (time.time() - start_time))  
 
     return count, latticetype, cellsize, thickness, porosity, element_size
+
+def mesh_stats(latticetype:int,cellsize:float,thickness:float,elementmultiplier:float,count:int):
+    element_size = elementSize(cellsize, thickness, elementmultiplier)
+    porosity = calculatePorosity(cellsize,directory = os.path.join(logger.folder.directory,str(count)))
+    return element_size, porosity
+
 
 if __name__ == "__main__":
     main()
